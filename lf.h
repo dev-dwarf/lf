@@ -1,12 +1,53 @@
 #ifndef LF_H
 #define LF_H 1
 
-/// Macros ///
-#include <string.h>
+#include <string.h> // memcpy, memset
 
-// Common macros
+/// Abbreviated Primitive Types ///
+#include <stdint.h>
+#include <stdbool.h>
+
+typedef int8_t s8;
+typedef int16_t s16;
+typedef int32_t s32;
+typedef int64_t s64;
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+typedef intptr_t sptr intptr_t;
+typedef uintptr_t uptr;
+typedef float f32;
+typedef double f64;
+
+#define s8_MAX 0x7F
+#define s8_MIN (-1 - 0x7F)
+#define s16_MAX 0x7FFF
+#define s16_MIN (-1 - 0x7FFF)
+#define s32_MAX (0x7FFFFFFF)
+#define s32_MIN (-1 - 0x7FFFFFFF)
+#define s64_MAX (0x7FFFFFFFFFFFFFFFll)
+#define s64_MIN (-1 - 0x7FFFFFFFFFFFFFFFll)
+#define u8_MAX (0xFF)
+#define u16_MAX (0xFFFF)
+#define u32_MAX (0xFFFFFFFF)
+#define u64_MAX (0xFFFFFFFFFFFFFFFFll)
+#define sptr_MIN INTPTR_MIN
+#define sptr_MAX INTPTR_MAX
+#define uptr_MAX UINTPTR_MAX
+
+
+/// Macros ///
 #define ARRAY_LENGTH(A) (sizeof(A)/sizeof(*(A)))
 #define USED(X) do { (void) (X); } while(0) // mark X as used to silence unused var warnings
+
+#if __GNUC__
+  #define INLINE __attribute__((always_inline))
+#elif _MSC_VER
+  #define INLINE __forceinline
+#elif !defined(INLINE)
+  #error "INLINE undefined!"
+#endif
 
 // Math macros
 #define MIN(a,b) (((a)<(b))?(a):(b))
@@ -105,45 +146,6 @@
 #define STRUCT(type) (type)
 #define STRUCT_ZERO(type) (type){0}
 #endif
-
-/// Abbreviated Primitive Types ///
-#include <stdint.h>
-#include <stdbool.h>
-
-// Signed Int
-typedef int8_t s8;
-typedef int16_t s16;
-typedef int32_t s32;
-typedef int64_t s64;
-#define s8_MAX 0x7F
-#define s8_MIN (-1 - 0x7F)
-#define s16_MAX 0x7FFF
-#define s16_MIN (-1 - 0x7FFF)
-#define s32_MAX (0x7FFFFFFF)
-#define s32_MIN (-1 - 0x7FFFFFFF)
-#define s64_MAX (0x7FFFFFFFFFFFFFFFll)
-#define s64_MIN (-1 - 0x7FFFFFFFFFFFFFFFll)
-
-// Unsigned Int
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-#define u8_MAX (0xFF)
-#define u16_MAX (0xFFFF)
-#define u32_MAX (0xFFFFFFFF)
-#define u64_MAX (0xFFFFFFFFFFFFFFFFll)
-
-// Platform pointer integer sizes
-#define sptr intptr_t
-#define uptr uintptr_t
-#define sptr_MIN INTPTR_MIN
-#define sptr_MAX INTPTR_MAX
-#define uptr_MAX UINTPTR_MAX
-
-// Float
-typedef float f32;
-typedef double f64;
 
 /// Memory ///
 
@@ -326,12 +328,9 @@ void Arena_free(Arena *a, void *previous_alloc) {
 }
 #endif // LF_IMPL
 
-/// Strings ///
-// Char ops
 u8 char_lower(u8 c);
 u8 char_upper(u8 c);
 
-// Char Predicates
 bool char_is_whitespace(u8 c);
 bool char_is_letter(u8 c);
 bool char_is_num(u8 c);
@@ -344,10 +343,8 @@ typedef struct str {
 } str;
 
 #define strl(literal) STRUCT(str){(u8*)literal, sizeof(literal"") - 1}
+str strc(char *cstring); // does a strlen
 
-str cstring(char *cstring); // does a strlen
-
-// Simple ops
 str str_first(str s, sptr len);
 str str_skip(str s, sptr len);
 str str_cut(str s, sptr len);
@@ -355,28 +352,23 @@ str str_last(str s, sptr len);
 str str_sub(str s, sptr start, sptr n);
 str str_between(str s, sptr start, sptr end);
 
-// Conditional ops
 str str_skip_prefix(str s, str prefix);
 str str_cut_suffix(str s, str suffix);
 str str_skip_whitespace(str s);
 str str_cut_whitespace(str s);
 #define str_trim_whitespace(s) str_cut_whitespace(str_skip_whitespace(s))
 
-// Predicates
 #define str_empty(s) ((!(s).str) || ((s).len == 0))
 bool str_eq(str s, str b); // Checks that contents of strings match exactly
-bool str_eq_insensitive(str s, str b); // Compares strings, ignoring upper/lower case
 bool str_has_prefix(str s, str prefix);
 bool str_has_suffix(str s, str suffix);
 
-// Locations
 // NOTE(lf): all the following functions return >= 0 for a location, or -1 if not found
 sptr str_loc_dif(str s, str b);
 sptr str_loc_char(str s, u8 c);
 sptr str_loc_sub(str s, str sub);
 sptr str_loc_delims(str s, str delims); // treats delims as array of chars to match any of
 
-// Iteration
 // NOTE(lf): all cut methods use loc to find, then return the string prior to loc,
 // and advance src past the substring/delimiter/char.
 // If the loc is not found, an empty string will be returned
@@ -396,6 +388,9 @@ str str_concat(Arena *a, str s1, str s2);
 char* str_cstring(Arena *a, str s); // Adds null terminator
 
 // Misc
+// the purpose of these hashes is that it is easy to implement them in any
+// language, so they are good for example if doing codegen that needs to 
+// bridge across a C runtime and Python script.
 u32 str_hash_fnv1a(str s, u32 current);
 u64 str_hash_fnv1a_u64(str s, u64 current);
 
@@ -421,7 +416,7 @@ bool char_is_alphanum(u8 c) {
 	return (((unsigned)c|32) - 'a' < 26) || (((unsigned)c) - '0' < 10);
 }
 
-str cstring(char *cstring) {
+str str(char *cstring) {
 	str out = STRUCT_ZERO(str);
 	if (!cstring) return out;
 	out.str = (u8*)cstring;
