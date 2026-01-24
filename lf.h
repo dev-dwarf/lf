@@ -14,8 +14,10 @@
 #define ABS(a) (((a) < 0)? -(a) : (a))
 #define CLAMP(x,a,b) (((x)<(a))?(a):((b)<(x))?(b):(x))
 #define IS_POW2(x) ((x & (x-1)) == 0)
-#define LERP(a, b, t) ((a) + ((b) - (a))*((f64)(t)))
-#define UNLERP(x, a, b) (((f64)((x) - (a)))/((f64)((b) - (a))))
+// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
+#define LERP(a, b, t) ((a) + ((b) - (a))*(t))
+#define LERP_EX(a, b, t) ((a)*(1-(t)) + (b)*(t)) // guarantees L(0) = a, L(1) = b
+#define UNLERP(x, a, b) (((x) - (a))/((b) - (a)))
 #define REMAP(x, a, b, c, d) LERP(c, d, UNLERP(x, a, b))
 #define APPROACH(x, t, s) (((x) > (t))? MAX((x)-(s), (t)) : MIN((x)+(s), (t)))
 
