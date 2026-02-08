@@ -29,7 +29,7 @@
         , ...}@args:
           prev.stdenv.mkDerivation (args // {
             inherit name src installPhase;
-            buildInputs = [ lf ] + buildInputs;
+            buildInputs = [ lf ] ++ buildInputs;
             doCheck = !debug;
             dontStrip = debug;
             allowSubstitutes = false;
