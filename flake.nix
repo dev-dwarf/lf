@@ -9,7 +9,7 @@
         src = ./.;
         dontBuild = true;
         allowSubstitutes = false;
-        installPhase = '' mkdir -p $out/include && cp -r $src/* $out/include/'';
+        installPhase = '' mkdir -p $out/include && cp -r $src/lf.h $out/include/'';
       };
 
       # Standard derivation template for building Single Translation Unit programs
