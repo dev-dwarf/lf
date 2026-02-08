@@ -15,7 +15,7 @@ typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
-typedef intptr_t sptr intptr_t;
+typedef intptr_t sptr;
 typedef uintptr_t uptr;
 typedef float f32;
 typedef double f64;
@@ -36,10 +36,9 @@ typedef double f64;
 #define sptr_MAX INTPTR_MAX
 #define uptr_MAX UINTPTR_MAX
 
-
 /// Macros ///
-#define ARRAY_LENGTH(A) (sizeof(A)/sizeof(*(A)))
-#define USED(X) do { (void) (X); } while(0) // mark X as used to silence unused var warnings
+#define ARRAY_LEN(A) (sizeof(A)/sizeof(*(A)))
+#define UNUSED(X) do { (void) (X); } while(0) // mark X as used to silence unused var warnings
 
 #if __GNUC__
   #define INLINE __attribute__((always_inline))
@@ -213,7 +212,7 @@ Arena Arena_fixed(u8* buf, uptr size) {
 }
 
 static inline uptr next_align(u8* mem, uptr offset, uptr align) {
-	DEV_ASSERT(IS_POWER2(align), "align must be a power of 2.");
+	ASSERT(IS_POW2(align), "align must be a power of 2.");
 	uptr ptr = ((uptr)mem) + offset;
 	/* Fast replacement for mod because align is power of 2 */
 	uptr modulo = ptr & (align-1);
@@ -225,13 +224,12 @@ static inline uptr next_align(u8* mem, uptr offset, uptr align) {
 
 Arena Arena_new(Arena params) {
 	if (params.commit_size == 0) { params.commit_size = KB(4); }
-	DEV_ASSERT(params.size >= 0, "Arena_new: params.size must be >= 0");
 
 	sptr commit_size;
 	if (LF_MEMORY_VIRTUAL && params.commit_size > 0) {
-		DEV_ASSERT(IS_POWER2(params.commit_size),
+		ASSERT(IS_POW2(params.commit_size),
 			"Arena_new: for virtual mem params.commit_size must be power of 2");
-		DEV_ASSERT(next_align(0, params.size, params.commit_size) == params.size,
+		ASSERT(next_align(0, params.size, params.commit_size) == params.size,
 			"Arena_new: for virtual mem params.size must be a multiple of "
 			"params.commit_size");
 		commit_size = params.commit_size;
@@ -240,10 +238,10 @@ Arena Arena_new(Arena params) {
 		commit_size = params.size;
 	}
 	params.buf = (u8*) LF_MEMORY_RESERVE(params.size);
-	DEV_ASSERT(params.buf, "Arena_new: Failed to reserve memory!");
+	ASSERT(params.buf, "Arena_new: Failed to reserve memory!");
 	bool commited = LF_MEMORY_COMMIT(params.buf, commit_size);
-	USED(commited);
-	DEV_ASSERT(commited, "Arena_new: Failed to commit memory!");
+	UNUSED(commited);
+	ASSERT(commited, "Arena_new: Failed to commit memory!");
 	params.commit_pos = params.commit_size;
 	return params;
 }
@@ -280,7 +278,7 @@ void* Arena_take_align(Arena *a, uptr size, uptr align) {
 			a->pos = new_pos;
 		}
 	}
-	DEV_ASSERT(result, "Arena out of memory!"); // Arena out of memory!
+	ASSERT(result, "Arena out of memory!"); // Arena out of memory!
 	return result;
 }
 
@@ -291,8 +289,7 @@ void *Arena_take_zero_align(Arena *a, uptr size, uptr align) {
 }
 
 void Arena_reset(Arena *a, uptr pos) {
-	DEV_ASSERT(pos >= 0, "Arena_reset: should be reset to pos >= 0!");
-	DEV_ASSERT(pos <= a->pos, "Arena_reset: should be reset to pos <= a->pos!");
+	ASSERT(pos <= a->pos, "Arena_reset: should be reset to pos <= a->pos!");
 	// Clear memory in DEV build to make use-after-free more obvious
 	#ifdef LF_DEV
 	if (pos) {
@@ -321,9 +318,9 @@ void Arena_decommit(Arena *a, uptr pos) {
 }
 
 void Arena_free(Arena *a, void *previous_alloc) {
-	DEV_ASSERT(previous_alloc, "Arena_free: previous alloc should be non-null!");
+	ASSERT(previous_alloc, "Arena_free: previous alloc should be non-null!");
 	uptr pos = (u8*) previous_alloc - a->buf;
-	DEV_ASSERT(pos < a->size, "Arena_free: previous alloc must be in arena buf!");
+	ASSERT(pos < a->size, "Arena_free: previous alloc must be in arena buf!");
 	Arena_reset(a, pos);
 }
 #endif // LF_IMPL
@@ -345,10 +342,10 @@ typedef struct str {
 #define strl(literal) STRUCT(str){(u8*)literal, sizeof(literal"") - 1}
 str strc(char *cstring); // does a strlen
 
-str str_first(str s, sptr len);
-str str_skip(str s, sptr len);
-str str_cut(str s, sptr len);
-str str_last(str s, sptr len);
+str str_first(str s, sptr len); // s[0, len)
+str str_skip(str s, sptr len);  // s[len, s.len-len)
+str str_cut(str s, sptr len);   // s[0, s.len-len)
+str str_last(str s, sptr len);  // s[s.len-len, s.len)
 str str_sub(str s, sptr start, sptr n);
 str str_between(str s, sptr start, sptr end);
 
@@ -364,10 +361,10 @@ bool str_has_prefix(str s, str prefix);
 bool str_has_suffix(str s, str suffix);
 
 // NOTE(lf): all the following functions return >= 0 for a location, or -1 if not found
-sptr str_loc_dif(str s, str b);
-sptr str_loc_char(str s, u8 c);
-sptr str_loc_sub(str s, str sub);
-sptr str_loc_delims(str s, str delims); // treats delims as array of chars to match any of
+sptr str_find_dif(str s, str b);
+sptr str_find_char(str s, u8 c);
+sptr str_find_sub(str s, str sub);
+sptr str_find_delims(str s, str delims); // treats delims as array of chars to match any of
 
 // NOTE(lf): all cut methods use loc to find, then return the string prior to loc,
 // and advance src past the substring/delimiter/char.
@@ -377,7 +374,7 @@ str str_cut_sub(str *src, str sub);
 str str_cut_delims(str *src, str delims);
 #define str_iter(i, c, s) \
 	if (!!(s).str) \
-	for (ssize i = 0; i < (s).len, i++) \
+	for (sptr i = 0; i < (s).len; i++) \
 	for (u8 c = (s).str[i], __c = 1; __c; __c = 0)
 
 // Allocating ops
@@ -416,7 +413,7 @@ bool char_is_alphanum(u8 c) {
 	return (((unsigned)c|32) - 'a' < 26) || (((unsigned)c) - '0' < 10);
 }
 
-str str(char *cstring) {
+str strc(char *cstring) {
 	str out = STRUCT_ZERO(str);
 	if (!cstring) return out;
 	out.str = (u8*)cstring;
@@ -425,28 +422,28 @@ str str(char *cstring) {
 }
 
 str str_first(str s, sptr len) {
-	len = CLAMP_TOP(len, s.len);
+	len = MIN(len, s.len);
 	return STRUCT(str){s.str, len};
 }
 str str_skip(str s, sptr len) {
-	len = CLAMP_TOP(len, s.len);
+	len = MIN(len, s.len);
 	return STRUCT(str){s.str + len, (s.len - len)};
 }
 str str_cut(str s, sptr len) {
-	len = CLAMP_TOP(len, s.len);
+	len = MIN(len, s.len);
 	return STRUCT(str){s.str, s.len - len};
 }
 str str_last(str s, sptr len) {
-	len = CLAMP_TOP(len, s.len);
+	len = MIN(len, s.len);
 	return STRUCT(str){s.str + s.len - len, len};
 }
 str str_sub(str s, sptr start, sptr len) {
-	len = CLAMP_TOP(len, s.len-start);
+	len = MIN(len, s.len-start);
 	return STRUCT(str){s.str + start, len};
 }
 str str_between(str s, sptr start, sptr end) {
-	end = CLAMP_TOP(end, s.len);
-	start = CLAMP_BOTTOM(start, 0);
+	end = MIN(end, s.len);
+	start = MAX(start, 0);
 	return STRUCT(str){s.str+start, end-start};
 }
 
@@ -494,7 +491,7 @@ bool str_has_suffix(str s, str suffix) {
 	return (offset > 0) && (memcmp(s.str+offset, suffix.str, suffix.len) == 0);
 }
 
-sptr str_loc_dif(str s, str b) {
+sptr str_find_dif(str s, str b) {
 	if (str_empty(s)) return str_empty(b)? -1 : 0;
 	sptr len = MIN(s.len, b.len);
 	for (sptr i = 0; i < len; i++) {
@@ -504,13 +501,13 @@ sptr str_loc_dif(str s, str b) {
 	}
 	return (s.len != b.len)? len : -1;
 }
-sptr str_loc_char(str s, u8 find) {
+sptr str_find_char(str s, u8 find) {
 	str_iter(i,c, s) {
 		if (c == find) return i;
 	}
 	return -1;
 }
-sptr str_loc_sub(str s, str sub) {
+sptr str_find_sub(str s, str sub) {
 	if (str_empty(s) || str_empty(sub)) return -1;
 	sptr match = 0;
 	str_iter(i,c, s) {
@@ -525,7 +522,7 @@ sptr str_loc_sub(str s, str sub) {
 	}
 	return -1;
 }
-sptr str_loc_delims(str s, str delims) {
+sptr str_find_delims(str s, str delims) {
 	if (str_empty(s) || str_empty(delims)) return -1;
 	str_iter(i,c, s) {
 		str_iter(j,d, delims) {
@@ -539,7 +536,7 @@ sptr str_loc_delims(str s, str delims) {
 
 str str_cut_char(str *src, u8 c) {
 	str out = *src;
-	sptr loc = str_loc_char(*src, c);
+	sptr loc = str_find_char(*src, c);
 	if (loc >= 0) {
 		sptr delta = loc+1;
 		src->str = out.str + delta;
@@ -552,7 +549,7 @@ str str_cut_char(str *src, u8 c) {
 }
 str str_cut_sub(str *src, str sub) {
 	str out = *src;
-	sptr loc = str_loc_sub(*src, sub);
+	sptr loc = str_find_sub(*src, sub);
 	if (loc >= 0) {
 		sptr delta = loc+sub.len;
 		src->str = out.str + delta;
@@ -565,7 +562,7 @@ str str_cut_sub(str *src, str sub) {
 }
 str str_cut_delims(str *src, str delims) {
 	str out = *src;
-	sptr loc = str_loc_delims(*src, delims);
+	sptr loc = str_find_delims(*src, delims);
 	if (loc >= 0) {
 		sptr delta = loc+1;
 		src->str = out.str + delta;
