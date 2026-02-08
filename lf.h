@@ -344,21 +344,26 @@ str strc(char *cstring); // does a strlen
 
 str str_first(str s, sptr len); // s[0, len)
 str str_skip(str s, sptr len);  // s[len, s.len-len)
-str str_cut(str s, sptr len);   // s[0, s.len-len)
+str str_trim(str s, sptr len);   // s[0, s.len-len)
 str str_last(str s, sptr len);  // s[s.len-len, s.len)
 str str_sub(str s, sptr start, sptr n);
 str str_between(str s, sptr start, sptr end);
 
-str str_skip_prefix(str s, str prefix);
-str str_cut_suffix(str s, str suffix);
+str str_skip_start(str s, str prefix);
+str str_trim_end(str s, str suffix);
+#define str_skip_startl(s, l) str_skip_start(s, strl(l))
+#define str_trim_endl(s, l) str_trim_end(s, strl(l))
+
 str str_skip_whitespace(str s);
-str str_cut_whitespace(str s);
-#define str_trim_whitespace(s) str_cut_whitespace(str_skip_whitespace(s))
+str str_trim_whitespace(str s);
+#define str_strip_whitespace(s) str_trim_whitespace(str_skip_whitespace(s))
 
 #define str_empty(s) ((!(s).str) || ((s).len == 0))
 bool str_eq(str s, str b); // Checks that contents of strings match exactly
-bool str_has_prefix(str s, str prefix);
-bool str_has_suffix(str s, str suffix);
+bool str_start(str s, str prefix);
+bool str_end(str s, str suffix);
+#define str_startl(s,l) str_start(s, strl(l))
+#define str_endl(s,l) str_end(s, strl(l))
 
 // NOTE(lf): all the following functions return >= 0 for a location, or -1 if not found
 sptr str_find_dif(str s, str b);
@@ -371,6 +376,7 @@ sptr str_find_delims(str s, str delims); // treats delims as array of chars to m
 // If the loc is not found, an empty string will be returned
 str str_cut_char(str *src, u8 c);
 str str_cut_sub(str *src, str sub);
+#define str_cut_subl(ps, l) str_cut_sub((ps), strl(l));
 str str_cut_delims(str *src, str delims);
 #define str_iter(i, c, s) \
 	if (!!(s).str) \
@@ -429,7 +435,7 @@ str str_skip(str s, sptr len) {
 	len = MIN(len, s.len);
 	return STRUCT(str){s.str + len, (s.len - len)};
 }
-str str_cut(str s, sptr len) {
+str str_trim(str s, sptr len) {
 	len = MIN(len, s.len);
 	return STRUCT(str){s.str, s.len - len};
 }
@@ -447,15 +453,15 @@ str str_between(str s, sptr start, sptr end) {
 	return STRUCT(str){s.str+start, end-start};
 }
 
-str str_skip_prefix(str s, str prefix) {
-	if (str_has_prefix(s, prefix)) {
+str str_skip_start(str s, str prefix) {
+	if (str_start(s, prefix)) {
 		s.str += prefix.len;
 		s.len -= prefix.len;
 	}
 	return s;
 }
-str str_cut_suffix(str s, str suffix) {
-	if (str_has_suffix(s, suffix)) {
+str str_trim_end(str s, str suffix) {
+	if (str_end(s, suffix)) {
 		s.len -= suffix.len;
 	}
 	return s;
@@ -468,7 +474,7 @@ str str_skip_whitespace(str s) {
 	}
 	return s;
 }
-str str_cut_whitespace(str s) {
+str str_trim_whitespace(str s) {
 	if (s.str) {
 		while((s.len > 0) && char_is_whitespace(s.str[s.len-1])) {
 			s.len--;
@@ -481,11 +487,11 @@ bool str_eq(str s, str b) {
 	if (str_empty(s)) return str_empty(b);
 	return ((s.len == b.len) && (memcmp(s.str, b.str, b.len) == 0));
 }
-bool str_has_prefix(str s, str prefix) {
+bool str_start(str s, str prefix) {
 	if (str_empty(s)) return str_empty(prefix);
 	return (prefix.len <= s.len) && (memcmp(s.str, prefix.str, prefix.len) == 0);
 }
-bool str_has_suffix(str s, str suffix) {
+bool str_end(str s, str suffix) {
 	if (str_empty(s)) return str_empty(suffix);
 	sptr offset = s.len - suffix.len;
 	return (offset > 0) && (memcmp(s.str+offset, suffix.str, suffix.len) == 0);
