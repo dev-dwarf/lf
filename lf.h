@@ -160,20 +160,19 @@ typedef struct Arena {
 // Create arenas
 #define Arena_buffer(buf) Arena_fixed(buf, sizeof(buf))
 Arena Arena_fixed(u8* buf, uptr size);
-Arena Arena_new(Arena params);
-// NOTE(lf): Not needed at program exit
-void Arena_destroy(Arena *a);
+Arena Arena_alloc(Arena params);
+void Arena_destroy(Arena *a); // NOTE(lf): Not needed at program exit
 
-// Allocate methods
-void* Arena_take_align(Arena *a, uptr size, uptr align);
-void* Arena_take_zero_align(Arena *a, uptr size, uptr align);
+// Allocate
+void* Arena_bytes_align(Arena *a, uptr size, uptr align);
+void* Arena_bytes_zero_align(Arena *a, uptr size, uptr align);
 #define LF_DEFAULT_ALIGN sizeof(uptr)
-#define Arena_take(a, size) Arena_take_align(a, size, LF_DEFAULT_ALIGN)
-#define Arena_take_zero(a, size) Arena_take_zero_align(a, size, LF_DEFAULT_ALIGN)
-#define Arena_struct(a, type) ((type*) Arena_take(a, sizeof(type)))
-#define Arena_struct_zero(a, type) ((type*) Arena_take_zero(a, sizeof(type)))
-#define Arena_array(a, type, len) ((type*) Arena_take(a, (len)*sizeof(type)))
-#define Arena_array_zero(a, type, len) ((type*) Arena_take_zero(a, (len)*sizeof(type)))
+#define Arena_bytes(a, size) Arena_bytes_align(a, size, LF_DEFAULT_ALIGN)
+#define Arena_bytes_zero(a, size) Arena_bytes_zero_align(a, size, LF_DEFAULT_ALIGN)
+#define Arena_struct(a, type) ((type*) Arena_bytes(a, sizeof(type)))
+#define Arena_struct_zero(a, type) ((type*) Arena_bytes_zero(a, sizeof(type)))
+#define Arena_array(a, type, len) ((type*) Arena_bytes(a, (len)*sizeof(type)))
+#define Arena_array_zero(a, type, len) ((type*) Arena_bytes_zero(a, (len)*sizeof(type)))
 
 // Free memory
 void Arena_reset(Arena *a, uptr pos);
@@ -204,8 +203,7 @@ void Arena_free(Arena* a, void *prev_allocation); // Reset arena to before prev_
 #define LF_MEMORY_VIRTUAL 0
 #endif
 
-#define LF_ARENA_FIXED -2
-#define LF_ARENA_NO_COMMIT -1
+#define LF_ARENA_FIXED -1
 
 Arena Arena_fixed(u8* buf, uptr size) {
 	return STRUCT(Arena){ buf, 0, size, size, LF_ARENA_FIXED};
@@ -222,24 +220,19 @@ static inline uptr next_align(u8* mem, uptr offset, uptr align) {
 	return ptr - ((uptr) mem);
 }
 
-Arena Arena_new(Arena params) {
-	if (params.commit_size == 0) { params.commit_size = KB(4); }
+Arena Arena_alloc(Arena params) {
+	if (params.commit_size <= 0) { params.commit_size = KB(4); }
 
-	sptr commit_size;
-	if (LF_MEMORY_VIRTUAL && params.commit_size > 0) {
+	if (LF_MEMORY_VIRTUAL) {
 		ASSERT(IS_POW2(params.commit_size),
 			"Arena_new: for virtual mem params.commit_size must be power of 2");
 		ASSERT(next_align(0, params.size, params.commit_size) == params.size,
 			"Arena_new: for virtual mem params.size must be a multiple of "
 			"params.commit_size");
-		commit_size = params.commit_size;
-	} else {
-		params.commit_size = LF_ARENA_NO_COMMIT;
-		commit_size = params.size;
 	}
 	params.buf = (u8*) LF_MEMORY_RESERVE(params.size);
 	ASSERT(params.buf, "Arena_new: Failed to reserve memory!");
-	bool commited = LF_MEMORY_COMMIT(params.buf, commit_size);
+	bool commited = LF_MEMORY_COMMIT(params.buf, params.commit_size);
 	UNUSED(commited);
 	ASSERT(commited, "Arena_new: Failed to commit memory!");
 	params.commit_pos = params.commit_size;
@@ -247,13 +240,13 @@ Arena Arena_new(Arena params) {
 }
 
 void Arena_destroy(Arena *a) {
-	if ((a->commit_size > 0) || (a->commit_size == LF_ARENA_NO_COMMIT)) {
+	if (a->commit_size > 0) {
 		LF_MEMORY_FREE(a->buf, a->size);
 	}
 	a->buf = 0;
 }
 
-void* Arena_take_align(Arena *a, uptr size, uptr align) {
+void* Arena_bytes_align(Arena *a, uptr size, uptr align) {
 	void* result = 0;
 
 	// Align pos pointer
@@ -282,8 +275,8 @@ void* Arena_take_align(Arena *a, uptr size, uptr align) {
 	return result;
 }
 
-void *Arena_take_zero_align(Arena *a, uptr size, uptr align) {
-	void *mem = Arena_take_align(a, size, align);
+void *Arena_bytes_zero_align(Arena *a, uptr size, uptr align) {
+	void *mem = Arena_bytes_align(a, size, align);
 	memset(mem, 0, size);
 	return mem;
 }
@@ -342,12 +335,10 @@ typedef struct str {
 #define strl(literal) STRUCT(str){(u8*)literal, sizeof(literal"") - 1}
 str strc(char *cstring); // does a strlen
 
-str str_first(str s, sptr len); // s[0, len)
-str str_skip(str s, sptr len);  // s[len, s.len-len)
-str str_trim(str s, sptr len);   // s[0, s.len-len)
-str str_last(str s, sptr len);  // s[s.len-len, s.len)
-str str_sub(str s, sptr start, sptr n);
-str str_between(str s, sptr start, sptr end);
+str str_first(str s, sptr n); // s[0, n)
+str str_skip(str s, sptr n);  // s[n, s.len)
+str str_trim(str s, sptr n);   // s[0, s.len-n)
+str str_last(str s, sptr n);  // s[s.len-n, s.len)
 
 str str_skip_start(str s, str prefix);
 str str_trim_end(str s, str suffix);
@@ -378,6 +369,7 @@ str str_cut_char(str *src, u8 c);
 str str_cut_sub(str *src, str sub);
 #define str_cut_subl(ps, l) str_cut_sub((ps), strl(l));
 str str_cut_delims(str *src, str delims);
+
 #define str_iter(i, c, s) \
 	if (!!(s).str) \
 	for (sptr i = 0; i < (s).len; i++) \
@@ -442,15 +434,6 @@ str str_trim(str s, sptr len) {
 str str_last(str s, sptr len) {
 	len = MIN(len, s.len);
 	return STRUCT(str){s.str + s.len - len, len};
-}
-str str_sub(str s, sptr start, sptr len) {
-	len = MIN(len, s.len-start);
-	return STRUCT(str){s.str + start, len};
-}
-str str_between(str s, sptr start, sptr end) {
-	end = MIN(end, s.len);
-	start = MAX(start, 0);
-	return STRUCT(str){s.str+start, end-start};
 }
 
 str str_skip_start(str s, str prefix) {
@@ -586,7 +569,7 @@ static str strfv(Arena *a, const char *fmt, va_list args) {
 	va_list args2;
 	va_copy(args2, args);
 	result.len = vsnprintf(0, 0, fmt, args2);
-	result.str = (u8 *)Arena_take_align(a, result.len+1, 1);
+	result.str = (u8 *)Arena_bytes_align(a, result.len+1, 1);
 	vsnprintf((char *)result.str, (s32)result.len+1, fmt, args);
 	return result;
 }
@@ -598,12 +581,12 @@ str strf(Arena *a, const char *fmt, ...) {
 	return result;
 }
 str str_sized(Arena *a, sptr size) {
-	str out = STRUCT(str) { (u8 *)Arena_take_align(a, size, 1), size };
+	str out = STRUCT(str) { (u8 *)Arena_bytes_align(a, size, 1), size };
 	return out;
 }
 str str_copy(Arena *a, str s) {
 	if (str_empty(s)) return s;
-	str out = STRUCT(str) { (u8 *)Arena_take_align(a, s.len, 1), s.len };
+	str out = STRUCT(str) { (u8 *)Arena_bytes_align(a, s.len, 1), s.len };
 	memcpy(out.str, s.str, s.len);
 	return out;
 }
@@ -618,14 +601,14 @@ str str_concat(Arena *a, str s1, str s2) {
 	}
 	// append s2
 	if (str_empty(s2)) return out;
-	Arena_take_align(a, s2.len, 1);
+	Arena_bytes_align(a, s2.len, 1);
 	memcpy(out.str + out.len, s2.str, s2.len);
 	out.len += s2.len;
 	return out;
 }
 char* str_cstring(Arena *a, str s) {
 	if (str_empty(s)) return (char*) "";
-	char *out = (char*) Arena_take_align(a, s.len+1, 1);
+	char *out = (char*) Arena_bytes_align(a, s.len+1, 1);
 	memcpy(out, s.str, s.len);
 	out[s.len] = '\0';
 	return out;
