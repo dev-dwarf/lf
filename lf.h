@@ -178,13 +178,13 @@ void Arena_destroy(Arena *a); // NOTE(lf): Not needed at program exit
 
 // Allocate
 void* Arena_bytes_align(Arena *a, uptr size, uptr align);
-void* Arena_bytes_zero_align(Arena *a, uptr size, uptr align);
+void* Arena_bytes_align_nz(Arena *a, uptr size, uptr align);
 #define Arena_bytes(a, size) Arena_bytes_align(a, size, 1)
-#define Arena_bytes_zero(a, size) Arena_bytes_zero_align(a, size, 1)
+#define Arena_bytes_nz(a, size) Arena_bytes_align_nz(a, size, 1)
 #define Arena_array(a, type, len) ((type*) Arena_bytes_align(a, (len)*sizeof(type), ALIGNOF(type)))
-#define Arena_array_zero(a, type, len) ((type*) Arena_bytes_zero_align(a, (len)*sizeof(type), ALIGNOF(type)))
+#define Arena_array_nz(a, type, len) ((type*) Arena_bytes_align_nz(a, (len)*sizeof(type), ALIGNOF(type)))
 #define Arena_struct(a, type) ((type*) Arena_array(a, type, 1))
-#define Arena_struct_zero(a, type) ((type*) Arena_array_zero(a, type, 1))
+#define Arena_struct_nz(a, type) ((type*) Arena_array_nz(a, type, 1))
 
 // Free memory
 void Arena_reset(Arena *a, uptr pos);
@@ -258,7 +258,7 @@ void Arena_destroy(Arena *a) {
 	a->buf = 0;
 }
 
-void* Arena_bytes_align(Arena *a, uptr size, uptr align) {
+void* Arena_bytes_align_nz(Arena *a, uptr size, uptr align) {
 	void* result = 0;
 
 	// Align pos pointer
@@ -287,8 +287,8 @@ void* Arena_bytes_align(Arena *a, uptr size, uptr align) {
 	return result;
 }
 
-void *Arena_bytes_zero_align(Arena *a, uptr size, uptr align) {
-	void *mem = Arena_bytes_align(a, size, align);
+void *Arena_bytes_align(Arena *a, uptr size, uptr align) {
+	void *mem = Arena_bytes_align_nz(a, size, align);
 	memset(mem, 0, size);
 	return mem;
 }
