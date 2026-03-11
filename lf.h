@@ -374,9 +374,8 @@ sptr str_find_char(str s, u8 c);
 sptr str_find_sub(str s, str sub);
 sptr str_find_delims(str s, str delims); // treats delims as array of chars to match any of
 
-// NOTE(lf): all cut methods use loc to find, then return the string prior to loc,
-// and advance src past the substring/delimiter/char.
-// If the loc is not found, an empty string will be returned
+// NOTE(lf): all cut methods return the first part of a string, and advance src past that part
+str str_cut(str *src, sptr index, sptr skip);
 str str_cut_char(str *src, u8 c);
 str str_cut_sub(str *src, str sub);
 #define str_cut_subl(ps, l) str_cut_sub((ps), strl(l));
@@ -535,44 +534,24 @@ sptr str_find_delims(str s, str delims) {
 	return -1;
 }
 
-str str_cut_char(str *src, u8 c) {
+str str_cut(str *src, sptr index, sptr skip) {
 	str out = *src;
-	sptr loc = str_find_char(*src, c);
-	if (loc >= 0) {
-		sptr delta = loc+1;
-		src->str = out.str + delta;
-		src->len = MAX(out.len - delta, 0);
-		out.len = loc;
+	if (index >= 0) {
+		*src = str_skip(*src, index+skip);
+		out.len = MIN(index, out.len);
 	} else {
 		src->len = 0;
 	}
 	return out;
+}
+str str_cut_char(str *src, u8 c) {
+	return str_cut(src, str_find_char(*src, c), 1);
 }
 str str_cut_sub(str *src, str sub) {
-	str out = *src;
-	sptr loc = str_find_sub(*src, sub);
-	if (loc >= 0) {
-		sptr delta = loc+sub.len;
-		src->str = out.str + delta;
-		src->len = MAX(out.len - delta, 0);
-		out.len = loc;
-	} else {
-		src->len = 0;
-	}
-	return out;
+	return str_cut(src, str_find_sub(*src, sub), sub.len);
 }
 str str_cut_delims(str *src, str delims) {
-	str out = *src;
-	sptr loc = str_find_delims(*src, delims);
-	if (loc >= 0) {
-		sptr delta = loc+1;
-		src->str = out.str + delta;
-		src->len = MAX(out.len - delta, 0);
-		out.len = loc;
-	} else {
-		src->len = 0;
-	}
-	return out;
+	return str_cut(src, str_find_delims(*src, delims), 1);
 }
 
 #include <stdarg.h>
