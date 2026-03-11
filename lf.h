@@ -179,13 +179,12 @@ void Arena_destroy(Arena *a); // NOTE(lf): Not needed at program exit
 // Allocate
 void* Arena_bytes_align(Arena *a, uptr size, uptr align);
 void* Arena_bytes_zero_align(Arena *a, uptr size, uptr align);
-#define LF_DEFAULT_ALIGN sizeof(uptr)
-#define Arena_bytes(a, size) Arena_bytes_align(a, size, LF_DEFAULT_ALIGN)
-#define Arena_bytes_zero(a, size) Arena_bytes_zero_align(a, size, LF_DEFAULT_ALIGN)
-#define Arena_struct(a, type) ((type*) Arena_bytes(a, sizeof(type)))
-#define Arena_struct_zero(a, type) ((type*) Arena_bytes_zero(a, sizeof(type)))
-#define Arena_array(a, type, len) ((type*) Arena_bytes(a, (len)*sizeof(type)))
-#define Arena_array_zero(a, type, len) ((type*) Arena_bytes_zero(a, (len)*sizeof(type)))
+#define Arena_bytes(a, size) Arena_bytes_align(a, size, 1)
+#define Arena_bytes_zero(a, size) Arena_bytes_zero_align(a, size, 1)
+#define Arena_array(a, type, len) ((type*) Arena_bytes_align(a, (len)*sizeof(type), ALIGNOF(type)))
+#define Arena_array_zero(a, type, len) ((type*) Arena_bytes_zero_align(a, (len)*sizeof(type), ALIGNOF(type)))
+#define Arena_struct(a, type) ((type*) Arena_array(a, type, 1))
+#define Arena_struct_zero(a, type) ((type*) Arena_array_zero(a, type, 1))
 
 // Free memory
 void Arena_reset(Arena *a, uptr pos);
