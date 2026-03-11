@@ -77,7 +77,20 @@ typedef double f64;
 #elif _MSC_VER
   #define IS_LITTLE_ENDIAN (1)
 #elif !defined(IS_LITTLE_ENDIAN)
-  #error "IS_LITTLE_ENDIAN undefined!"
+  #error "IS_LITTLE_ENDIAN is not defined!"
+#endif
+
+// Alignment (C/C++ 11 or compiler extensions)
+#if defined(__cplusplus) && __cplusplus >= 2011
+#define ALIGNOF(T) alignof(T)
+#elif defined(__STDC_VERSION) && __STDC_VERSION >= 2011
+#define ALIGNOF(T) _Alignof(T)
+#elif __GNUC__
+#define ALIGNOF(T) __alignof__(T)
+#elif _MSC_VER
+#define ALIGNOF(T) __alignof(T)
+#else
+#error "ALIGNOF is not defined!"
 #endif
 
 // Defer/with using for loops.
