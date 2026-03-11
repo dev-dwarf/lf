@@ -333,7 +333,7 @@ void Arena_free(Arena *a, void *previous_alloc) {
 u8 char_lower(u8 c);
 u8 char_upper(u8 c);
 
-bool char_is_whitespace(u8 c);
+bool char_is_ws(u8 c);
 bool char_is_letter(u8 c);
 bool char_is_num(u8 c);
 bool char_is_alphanum(u8 c);
@@ -357,9 +357,9 @@ str str_trim_end(str s, str suffix);
 #define str_skip_startl(s, l) str_skip_start(s, strl(l))
 #define str_trim_endl(s, l) str_trim_end(s, strl(l))
 
-str str_skip_whitespace(str s);
-str str_trim_whitespace(str s);
-#define str_strip_whitespace(s) str_trim_whitespace(str_skip_whitespace(s))
+str str_skip_ws(str s);
+str str_trim_ws(str s);
+#define str_strip_ws(s) str_trim_ws(str_skip_ws(s))
 
 #define str_empty(s) ((!(s).str) || ((s).len == 0))
 bool str_eq(str s, str b); // Checks that contents of strings match exactly
@@ -409,7 +409,7 @@ u8 char_lower(u8 c) {
 u8 char_upper(u8 c) {
 	return (c >= 'a' && c <= 'z') ? (c &~0x20) : c;
 }
-bool char_is_whitespace(u8 c) {
+bool char_is_ws(u8 c) {
 	return ((c == ' ') || (c == '\n') || (c == '\t')
 					  || (c == '\r') || (c == '\v'));
 }
@@ -461,17 +461,17 @@ str str_trim_end(str s, str suffix) {
 	}
 	return s;
 }
-str str_skip_whitespace(str s) {
+str str_skip_ws(str s) {
 	if (s.str) {
-		while((s.len > 0) && char_is_whitespace(s.str[0])) {
+		while((s.len > 0) && char_is_ws(s.str[0])) {
 			s.str++; s.len--;
 		}
 	}
 	return s;
 }
-str str_trim_whitespace(str s) {
+str str_trim_ws(str s) {
 	if (s.str) {
-		while((s.len > 0) && char_is_whitespace(s.str[s.len-1])) {
+		while((s.len > 0) && char_is_ws(s.str[s.len-1])) {
 			s.len--;
 		}
 	}
