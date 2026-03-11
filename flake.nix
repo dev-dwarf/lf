@@ -37,11 +37,10 @@
             ''${if cpp then "$CXX" else "$CC"} \
               ${if executable then "-o ${name}" else "-o {name}.o -c"} \
               ${src}/${main}.${if cpp then "cpp" else "c"} \
-              ${flags} ${if debug then "-g -O0" else "-O2"}
+              ${flags} ${if debug then "-g -O0 -D_FORTIFY_SOURCE=0" else "-O2"}
             '';
           });
         in args: (mk args) // { debug = mk (args // { debug = true; }); };
     };
   };
-
 }
