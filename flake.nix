@@ -23,7 +23,7 @@
         , executable ? true
         , ...}@args:
           prev.stdenv.mkDerivation ({
-            inherit name src installPhase;
+            inherit name src;
             buildInputs = [ lf ] ++ buildInputs;
             doCheck = !debug;
             dontStrip = debug;
