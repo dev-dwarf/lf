@@ -36,7 +36,7 @@
             buildPhase = ''
               mkdir -p ${if executable then "$out/bin" else "$out/share"}
               ${if cpp then "$CXX" else "$CC"} \
-              ${if executable then "-o $out/bin/${name}" else "-o $out/share/{name}.o -c"} \
+              ${if executable then "-o $out/bin/${name}" else "-o $out/share/${name}.o -c"} \
               ${src}/${main}.${if cpp then "cpp" else "c"} \
               ${flags} ${if debug then "-g -O0 -D_FORTIFY_SOURCE=0" else "-O2"}
             '';
