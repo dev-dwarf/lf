@@ -36,9 +36,10 @@
             buildPhase = ''
               mkdir -p ${if executable then "$out/bin" else "$out/lib"}
               ${if cpp then "$CXX" else "$CC"} \
-              ${if executable then "-o $out/bin/${name}" else "-o $out/lib/${name}.o -c"} \
+              ${if executable then "-o $out/bin/${name}" else "-o ${name}.o -c"} \
               ${src}/${main}.${if cpp then "cpp" else "c"} \
               ${flags} ${if debug then "-g -O0 -D_FORTIFY_SOURCE=0" else "-O2"}
+              ${if !executable then "ar -rcs $out/lib/lib${name}.a ${name}.o" else ""}
             '';
           } // args);
         in args: (mk args) // { debug = mk ({ debug = true; } // args); };
