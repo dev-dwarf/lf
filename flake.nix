@@ -23,7 +23,7 @@
         , executable ? true
         , installPhase ? ''
           runHook preInstall;
-          install -Dt $out/bin ${name};
+          install -Dt ${if executable then "$out/bin ${name}" else "$out/share ${name}.o"};
           runHook postInstall;
         ''
         , ...}@args:
