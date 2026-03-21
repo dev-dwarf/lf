@@ -27,20 +27,24 @@
           runHook postInstall;
         ''
         , ...}@args:
-          prev.stdenv.mkDerivation (args // {
+          prev.stdenv.mkDerivation ({
             inherit name src installPhase;
             buildInputs = [ lf ] ++ buildInputs;
             doCheck = !debug;
             dontStrip = debug;
             allowSubstitutes = false;
+            dontPatch = true;
+            dontUpdateAutotoolsGnuConfigScripts = true;
+            dontConfigure = true;
+            dontFixup = true;
             buildPhase = 
             ''${if cpp then "$CXX" else "$CC"} \
               ${if executable then "-o ${name}" else "-o {name}.o -c"} \
               ${src}/${main}.${if cpp then "cpp" else "c"} \
               ${flags} ${if debug then "-g -O0 -D_FORTIFY_SOURCE=0" else "-O2"}
             '';
-          });
-        in args: (mk args) // { debug = mk (args // { debug = true; }); };
+          } // args);
+        in args: (mk args) // { debug = mk ({ debug = true; } // args); };
     };
   };
 }
