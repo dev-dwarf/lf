@@ -365,6 +365,7 @@ str str_trim_ws(str s);
 bool str_eq(str s, str b); // Checks that contents of strings match exactly
 bool str_start(str s, str prefix);
 bool str_end(str s, str suffix);
+#define str_eql(s,l) str_eq(s, strl(l))
 #define str_startl(s,l) str_start(s, strl(l))
 #define str_endl(s,l) str_end(s, strl(l))
 
