@@ -642,9 +642,9 @@ uptr strp_int(str s, s32 *base, bool *valid) {
 		if (pre16) { // second side of || above
 			s.str += 2; s.len -= 2;
 		}
-		if (s.len == 0) goto invalid;
+		if (UNLIKELY(s.len == 0)) goto invalid;
 		for (sptr i = 0; i < s.len; i++) {
-			if (_strb16_i16_hdigit(s.str[i]) == -1) goto invalid;
+			if (UNLIKELY(_strb16_i16_hdigit(s.str[i]) == -1)) goto invalid;
 		} 
 		b = 16;
 		for (sptr i = 0; i < s.len; i++) {
@@ -653,18 +653,18 @@ uptr strp_int(str s, s32 *base, bool *valid) {
 	} else if ((b == 8) || (b == 0 && pre8)) {
 	 	// NOTE(lf) skip non-standard octal prefix if present	
 		s = str_skip_startl(s, "0o");
-		if (s.len == 0) goto invalid;
+		if (UNLIKELY(s.len == 0)) goto invalid;
 		for (sptr i = 0; i < s.len; i++) {
-			if ((u8)(s.str[i] - '0') >= 8) goto invalid;
+			if (UNLIKELY((u8)(s.str[i] - '0') >= 8)) goto invalid;
 		} 
 		b = 8;
 		for (sptr i = 0; i < s.len; i++) {
 			x = 8*x + (s.str[i] - '0');
 		}
 	} else if (b == 10 || b == 0) {
-		if (s.len == 0) goto invalid;
+		if (UNLIKELY(s.len == 0)) goto invalid;
 		for (sptr i = 0; i < s.len; i++) {
-			if ((u8)(s.str[i] - '0') >= 10) goto invalid;
+			if (UNLIKELY((u8)(s.str[i] - '0') >= 10)) goto invalid;
 		} 
 		b = 10;
 		for (sptr i = 0; i < s.len; i++) {
