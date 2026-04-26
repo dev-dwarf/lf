@@ -41,7 +41,7 @@ typedef double f64;
 #define UNUSED(X) do { (void) (X); } while(0) // mark X as used to silence unused var warnings
 
 #if __GNUC__
-  #define INLINE __attribute__((always_inline))
+  #define INLINE __attribute__((always_inline)) inline
 #elif _MSC_VER
   #define INLINE __forceinline
 #elif !defined(INLINE)
@@ -393,6 +393,18 @@ str str_copy(Arena *a, str s);
 str str_concat(Arena *a, str s1, str s2);
 char* str_cstring(Arena *a, str s); // Adds null terminator
 
+// strp_int
+// - returns parsed integer or 0 if invalid. 
+//   The returned value is unsigned but will be cast to a signed value correctly.
+// - if valid != null, *valid == true if ws strip'd str represents 
+//   an integer in base 8, 10, or 16. 
+// - if valid and base != null, writes base of number.
+// - if *base == 8, 10, 16, the selected base will be used
+//   for parsing and could fail even if it would be valid with *base == 0
+// - Integers greater than uptr_MAX will overflow
+// - Octal numbers can be prefixed with 0 or 0o.
+uptr strp_int(str s, s32 *base, bool *valid);
+
 // Misc
 // the purpose of these hashes is that it is easy to implement them in any
 // language, so they are good for example if doing codegen that needs to 
@@ -605,6 +617,70 @@ char* str_cstring(Arena *a, str s) {
 	return out;
 }
 
+INLINE s8 _strb16_i16_hdigit(u8 c) {
+	u8 d;
+	d = c - '0'; if (d < 10) return d;
+	d = (c | 32) - 'a'; if (d < 6) return d+10;
+	return -1;
+}
+uptr strp_int(str s, s32 *base, bool *valid) {
+	s = str_strip_ws(s);
+	s32 b = base? *base : 0;
+	uptr x = 0;
+	bool neg = false;
+
+	if (s.len > 0 && (s.str[0] == '+' || s.str[0] == '-')) {
+		neg = s.str[0] == '-';
+		s.str++; s.len--;
+	}
+
+	bool pre8 = str_start(s, strl("0"));
+	bool pre16 = str_start(s, strl("0x"));
+
+	if ((b == 16) || (b == 0 && pre16)) {
+		if (pre16) { // second side of || above
+			s.str += 2; s.len -= 2;
+		}
+		if (s.len == 0) goto invalid;
+		for (sptr i = 0; i < s.len; i++) {
+			if (_strb16_i16_hdigit(s.str[i]) == -1) goto invalid;
+		} 
+		b = 16;
+		for (sptr i = 0; i < s.len; i++) {
+			x = 16*x + _strb16_i16_hdigit(s.str[i]);
+		}
+	} else if ((b == 8) || (b == 0 && pre8)) {
+	 	// NOTE(lf) skip non-standard octal prefix if present	
+		s = str_skip_startl(s, "0o");
+		if (s.len == 0) goto invalid;
+		for (sptr i = 0; i < s.len; i++) {
+			if ((u8)(s.str[i] - '0') >= 8) goto invalid;
+		} 
+		b = 8;
+		for (sptr i = 0; i < s.len; i++) {
+			x = 8*x + (s.str[i] - '0');
+		}
+	} else if (b == 10 || b == 0) {
+		if (s.len == 0) goto invalid;
+		for (sptr i = 0; i < s.len; i++) {
+			if ((u8)(s.str[i] - '0') >= 10) goto invalid;
+		} 
+		b = 10;
+		for (sptr i = 0; i < s.len; i++) {
+			x = 10*x + (s.str[i] - '0');
+		}
+	} else {
+		goto invalid;
+	}
+	if (base) *base = b;
+  if (valid) *valid = true;
+	return neg? (uptr)(-((sptr) x)) : x;
+
+invalid:
+	if (valid) *valid = false;
+	return 0;
+}
+
 u32 str_hash_fnv1a(str s, u32 current) {
 	u32 hash = current? current : 0x811c9dc5;
 	str_iter(i, c, s) {
@@ -623,3 +699,4 @@ u64 str_hash_fnv1a_u64(str s, u64 current) {
 }
 #endif // LF_IMPL
 #endif // LF_H
+
